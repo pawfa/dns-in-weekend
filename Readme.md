@@ -1,0 +1,1 @@
+Implementing DNS resolver from scratch based on https://implement-dns.wizardzines.com/ & https://github.com/EmilHernvall/dnsguide
