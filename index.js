@@ -1,3 +1,4 @@
+const {sendPacket} = require('./udp.js')
 class DNSPacket {
     header;
     questions;
@@ -6,14 +7,13 @@ class DNSPacket {
     resources;
 
     constructor(header, questions, answers, authorities, resources) {
+        this.header = header
+        this.questions = questions
     }
 
     writeToBytes() {
-        const buffer = Buffer.alloc(512)
-        buffer.write(this.header.writeToBytes())
-        for (const question of this.questions) {
-            buffer.write(question.writeToBytes())
-        }
+        const buffer = Buffer.concat([this.header.writeToBytes(), ...this.questions.map((q)=> q.writeToBytes())])
+
         return buffer
     }
 
@@ -26,22 +26,27 @@ class DNSPacket {
     }
 }
 class DNSHeader {
-    id;
-    recursion_desired;
-    truncated_message;
-    authoritative_answer;
-    opcode;
-    response;
-    rescode;
-    checking_disabled;
-    authed_data;
-    z;
-    recursion_available;
+    id = 0;
+    recursion_desired = 1;
+    truncated_message = 0;
+    authoritative_answer = 0;
+    opcode = 0;
+    response = 0;
+    rescode = 0;
+    checking_disabled = 0;
+    authed_data = 0;
+    z = 0;
+    recursion_available = 0;
 
-    questions;
-    answers;
-    authoritative_entries;
-    resource_entries;
+    questions = 0;
+    answers = 0;
+    authoritative_entries = 0;
+    resource_entries = 0;
+
+    constructor(id, questions) {
+        this.id = id
+        this.questions = questions
+    }
 
     static readFromBytes(buffer) {
         const header = new DNSHeader();
@@ -69,7 +74,7 @@ class DNSHeader {
         header.answers = headerBytes.readUInt16BE(6);
         header.authoritative_entries = headerBytes.readUInt16BE(8);
         header.resource_entries = headerBytes.readUInt16BE(10);
-        console.log(header)
+
         return header
     }
 
@@ -108,14 +113,24 @@ class DNSQuestion {
 
     writeToBytes() {
         const nameSplitted = this.name.split(".");
-        let buffer = Buffer.alloc(500)
+        const buffers = []
         for (let i = 0; i < nameSplitted.length; i++) {
             const len = nameSplitted[i].length;
             const hexLen = '0x' + (len.toString('16').length === 1 ? '0' + len.toString('16') : len.toString('16'));
-            buffer.write(hexLen + nameSplitted[i])
+            buffers.push(Buffer.from([hexLen]))
+            buffers.push(Buffer.from(nameSplitted[i]))
         }
+        buffers.push(Buffer.from([0]))
+        const type = Buffer.alloc(2)
+        type.writeUInt16BE(this.type_)
+        buffers.push(type)
 
-        return buffer;
+        const class_ = Buffer.alloc(2)
+
+        class_.writeUInt16BE(this.class_)
+        buffers.push(class_)
+
+        return Buffer.concat(buffers);
     }
 
     static readFromBytes(buffer) {
@@ -130,25 +145,22 @@ class DNSQuestion {
             len = questionBytes.readUInt8(current)
 
         }
-        console.log(res.join('.'))
+
         return res.join('.')
     }
 }
 
 const queryArray = Buffer.from([0x48, 0xf0, 0x01, 0x20, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00, 0x01]);
-console.log(queryArray);
+
 const responseArray = Buffer.from([0x48, 0xf0, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x06, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00, 0x01, 0xc0, 0x0c, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04, 0x8e, 0xfa, 0xba, 0xce]);
 
-// const dnsHeader = new DNSHeader()
-// DNSHeader.readFromBytes(queryArray)
-// dnsHeader.writeToBytes()
-// new DNSHeader().readFromBytes(responseArray)
+const header = new DNSHeader(18672, 1);
+const question = new DNSQuestion("google.com",1,1);
 
+const packet = new DNSPacket(header, [question])
 
-// new DNSQuestion("google.com", 1, 1).writeToBytes();
-
-DNSPacket.readFromBytes(responseArray)
-
-
+sendPacket(packet.writeToBytes(), (message)=> {
+    console.log(DNSPacket.readFromBytes(message));
+})
 
 module.exports = {DNSHeader, DNSPacket, DNSQuestion};
