@@ -1,4 +1,35 @@
 const {sendPacket} = require('./udp.js')
+
+class BufferReader {
+    currentPos = 0
+    buffer;
+    constructor(buffer) {
+        this.buffer = buffer
+    }
+
+    readUInt16BE() {
+        const buff =  this.buffer.readUInt16BE(this.currentPos)
+        this.currentPos +=2;
+        return buff
+    }
+
+    readUInt8() {
+        const buff =  this.buffer.readUInt8(this.currentPos)
+        this.currentPos +=1;
+        return buff
+    }
+
+    skip(num) {
+        this.currentPos +=num;
+        return this
+    }
+
+    readRange(len) {
+        const res = this.buffer.subarray(this.currentPos,this.currentPos+len)
+        this.currentPos += len
+        return res
+    }
+}
 class DNSPacket {
     header;
     questions;
@@ -19,7 +50,8 @@ class DNSPacket {
 
     static readFromBytes(buffer) {
         const header = DNSHeader.readFromBytes(buffer)
-        const questions = DNSQuestion.readFromBytes(buffer)
+        const questions = [DNSQuestion.readFromBytes(buffer)]
+        const answers = [DNSRecord.readFromBytes(buffer)]
 
         return new DNSPacket(header,questions)
 
@@ -50,10 +82,9 @@ class DNSHeader {
 
     static readFromBytes(buffer) {
         const header = new DNSHeader();
-        const headerBytes = buffer.subarray(0, 12);
-        header.id = headerBytes.readUInt16BE(0);
+        header.id = buffer.readUInt16BE(0);
 
-        const flags = headerBytes.readUInt16BE(2);
+        const flags = buffer.readUInt16BE(2);
 
         const firstByte = flags >> 8;
         header.response = (firstByte & 128) >> 7;
@@ -70,10 +101,10 @@ class DNSHeader {
         header.z = (secondByte & 64) >> 6;
         header.recursion_available = (secondByte & 128) >> 7;
 
-        header.questions = headerBytes.readUInt16BE(4);
-        header.answers = headerBytes.readUInt16BE(6);
-        header.authoritative_entries = headerBytes.readUInt16BE(8);
-        header.resource_entries = headerBytes.readUInt16BE(10);
+        header.questions = buffer.readUInt16BE(4);
+        header.answers = buffer.readUInt16BE(6);
+        header.authoritative_entries = buffer.readUInt16BE(8);
+        header.resource_entries = buffer.readUInt16BE(10);
 
         return header
     }
@@ -134,19 +165,34 @@ class DNSQuestion {
     }
 
     static readFromBytes(buffer) {
-        const questionBytes = buffer.subarray(12)
-        let len = questionBytes.readUInt8(0)
-
-        let current = 0;
+        let len = buffer.readUInt8(0)
         let res = []
         while (len > 0) {
-            res.push(questionBytes.subarray(current+1, len+current+1).toString())
-            current = current +len+1
-            len = questionBytes.readUInt8(current)
-
+            res.push(buffer.readRange(len).toString())
+            len = buffer.readUInt8()
         }
 
-        return res.join('.')
+        const name = res.join('.')
+        const type_ = buffer.readUInt16BE();
+        const class_ = buffer.readUInt16BE()
+
+        return new DNSQuestion(name, type_, class_)
+    }
+}
+
+class DNSRecord {
+    name;
+    type_;
+    class_
+    ttl;
+    len;
+
+    static ARecord = class ARecord {
+
+    }
+
+    static readFromBytes(buffer) {
+        console.log(buffer)
     }
 }
 
@@ -160,7 +206,9 @@ const question = new DNSQuestion("google.com",1,1);
 const packet = new DNSPacket(header, [question])
 
 sendPacket(packet.writeToBytes(), (message)=> {
-    console.log(DNSPacket.readFromBytes(message));
+    const myBuffer = new BufferReader(message)
+
+    console.log(DNSPacket.readFromBytes(myBuffer));
 })
 
 module.exports = {DNSHeader, DNSPacket, DNSQuestion};
