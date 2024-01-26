@@ -20,7 +20,11 @@ class DNSPacket {
     static readFromBytes(buffer) {
         const header = DNSHeader.readFromBytes(buffer)
         const questions = [DNSQuestion.readFromBytes(buffer)]
-        const answers = [DNSRecord.readFromBytes(buffer)]
+        const answers = [];
+
+        for (let i =0; i< header.answers;i++) {
+            answers.push(DNSRecord.readFromBytes(buffer))
+        }
 
         return new DNSPacket(header,questions, answers)
 
@@ -156,24 +160,32 @@ class DNSRecord {
     ttl;
     len;
     ip;
+    data;
 
-    constructor(name, type_, class_, ttl, len, ip) {
+    constructor(name, type_, class_, ttl, len, ip,data) {
         this.name = name;
         this.type_ = type_;
         this.class_ = class_;
         this.ttl = ttl;
         this.len = len;
         this.ip = ip;
+        this.data = data;
     }
 
     static readFromBytes(buffer) {
+
         const name = buffer.readUInt16BE().toString();
         const type_ = buffer.readUInt16BE();
         const class_ = buffer.readUInt16BE();
         const ttl = buffer.readUInt32BE();
         const len = buffer.readUInt16BE();
-        const ip = `${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}`;
-        return new DNSRecord(name, type_, class_, ttl, len, ip)
+        if (type_ === 1) {
+            const ip = `${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}`;
+            return new DNSRecord(name, type_, class_, ttl, len, ip)
+        } else {
+            const data = buffer.readRange(len).toString();
+            return new DNSRecord(name, type_, class_, ttl, len, undefined,data)
+        }
     }
 }
 
