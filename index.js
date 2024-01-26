@@ -12,6 +12,11 @@ class BufferReader {
         this.currentPos +=2;
         return buff
     }
+    readUInt32BE() {
+        const buff =  this.buffer.readUInt32BE(this.currentPos)
+        this.currentPos +=4;
+        return buff
+    }
 
     readUInt8() {
         const buff =  this.buffer.readUInt8(this.currentPos)
@@ -40,6 +45,7 @@ class DNSPacket {
     constructor(header, questions, answers, authorities, resources) {
         this.header = header
         this.questions = questions
+        this.answers = answers
     }
 
     writeToBytes() {
@@ -53,7 +59,7 @@ class DNSPacket {
         const questions = [DNSQuestion.readFromBytes(buffer)]
         const answers = [DNSRecord.readFromBytes(buffer)]
 
-        return new DNSPacket(header,questions)
+        return new DNSPacket(header,questions, answers)
 
     }
 }
@@ -186,13 +192,30 @@ class DNSRecord {
     class_
     ttl;
     len;
+    ip;
+
+    constructor(name, type_, class_, ttl, len, ip) {
+        this.name = name;
+        this.type_ = type_;
+        this.class_ = class_;
+        this.ttl = ttl;
+        this.len = len;
+        this.ip = ip;
+    }
 
     static ARecord = class ARecord {
 
     }
 
     static readFromBytes(buffer) {
-        console.log(buffer)
+        const name = buffer.readUInt16BE().toString();
+        console.log(name)
+        const type_ = buffer.readUInt16BE();
+        const class_ = buffer.readUInt16BE();
+        const ttl = buffer.readUInt32BE();
+        const len = buffer.readUInt16BE();
+        const ip = `${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}`;
+        return new DNSRecord(name, type_, class_, ttl, len, ip)
     }
 }
 
