@@ -10,6 +10,10 @@ class BufferReader {
         this.currentPos +=2;
         return buff
     }
+
+    peekUInt16BE() {
+        return  this.buffer.readUInt16BE(this.currentPos)
+    }
     readUInt32BE() {
         const buff =  this.buffer.readUInt32BE(this.currentPos)
         this.currentPos +=4;
@@ -25,6 +29,22 @@ class BufferReader {
         const res = this.buffer.subarray(this.currentPos,this.currentPos+len)
         this.currentPos += len
         return res
+    }
+
+    peekName(start) {
+        const tmpBuff = this.buffer.subarray(start)
+        let len = tmpBuff.readUInt8()
+        let res = []
+        let currIndex = 0
+
+        while (len > 0) {
+            console.log(tmpBuff, tmpBuff.subarray(currIndex+1,len +currIndex+1))
+            res.push(tmpBuff.subarray(currIndex+1,len +currIndex+1).toString())
+            currIndex += 1+len
+            len = tmpBuff.readUInt8(currIndex)
+        }
+        console.log(res)
+        return res.join('.')
     }
 }
 

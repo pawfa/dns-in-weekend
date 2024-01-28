@@ -162,6 +162,14 @@ class DNSRecord {
     ip;
     data;
 
+    static typeToNameMap = {
+        1: 'A',
+        2: 'NS',
+        5: 'CNAME',
+        15: 'MX',
+        28 : 'AAAA'
+    }
+
     constructor(name, type_, class_, ttl, len, ip,data) {
         this.name = name;
         this.type_ = type_;
@@ -174,8 +182,12 @@ class DNSRecord {
 
     static readFromBytes(buffer) {
 
-        const name = buffer.readUInt16BE().toString();
-        const type_ = buffer.readUInt16BE();
+        const nameBytes = [buffer.readUInt8(),buffer.readUInt8()];
+        const jump = Buffer.from(nameBytes).readUInt16BE() ^ Buffer.from([nameBytes[0], 0x00]).readUInt16BE();
+
+        const name = buffer.peekName(jump);
+
+        const type_ = DNSRecord.typeToNameMap[buffer.readUInt16BE()];
         const class_ = buffer.readUInt16BE();
         const ttl = buffer.readUInt32BE();
         const len = buffer.readUInt16BE();
