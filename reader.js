@@ -38,7 +38,6 @@ class BufferReader {
         let currIndex = 0
 
         while (len > 0) {
-            console.log(tmpBuff, tmpBuff.subarray(currIndex+1,len +currIndex+1))
             res.push(tmpBuff.subarray(currIndex+1,len +currIndex+1).toString())
             currIndex += 1+len
             len = tmpBuff.readUInt8(currIndex)

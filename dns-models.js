@@ -160,7 +160,7 @@ class DNSRecord {
     ttl;
     len;
     ip;
-    data;
+    host;
 
     static typeToNameMap = {
         1: 'A',
@@ -170,18 +170,17 @@ class DNSRecord {
         28 : 'AAAA'
     }
 
-    constructor(name, type_, class_, ttl, len, ip,data) {
+    constructor(name, type_, class_, ttl, len, ip,host) {
         this.name = name;
         this.type_ = type_;
         this.class_ = class_;
         this.ttl = ttl;
         this.len = len;
         this.ip = ip;
-        this.data = data;
+        this.host = host;
     }
 
     static readFromBytes(buffer) {
-
         const nameBytes = [buffer.readUInt8(),buffer.readUInt8()];
         const jump = Buffer.from(nameBytes).readUInt16BE() ^ Buffer.from([nameBytes[0], 0x00]).readUInt16BE();
 
@@ -191,12 +190,14 @@ class DNSRecord {
         const class_ = buffer.readUInt16BE();
         const ttl = buffer.readUInt32BE();
         const len = buffer.readUInt16BE();
-        if (type_ === 1) {
+
+        if (type_ === 'A') {
             const ip = `${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}`;
             return new DNSRecord(name, type_, class_, ttl, len, ip)
         } else {
-            const data = buffer.readRange(len).toString();
-            return new DNSRecord(name, type_, class_, ttl, len, undefined,data)
+            const host = buffer.peekName(buffer.currentPos);
+            buffer.readRange(len) // move currentPos to the end of data section
+            return new DNSRecord(name, type_, class_, ttl, len, undefined,host)
         }
     }
 }
