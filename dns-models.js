@@ -9,10 +9,12 @@ class DNSPacket {
         this.header = header
         this.questions = questions
         this.answers = answers
+        this.authorities = authorities
+        this.resources = resources
     }
 
     writeToBytes() {
-        const buffer = Buffer.concat([this.header.writeToBytes(), ...this.questions.map((q)=> q.writeToBytes())])
+        const buffer = Buffer.concat([this.header.writeToBytes(), ...this.questions.map((q)=> q.writeToBytes()), ...this.answers.map((r)=> r.writeToBytes())])
 
         return buffer
     }
@@ -26,7 +28,17 @@ class DNSPacket {
             answers.push(DNSRecord.readFromBytes(buffer))
         }
 
-        return new DNSPacket(header,questions, answers)
+        const authorities = [];
+        for (let i =0; i< header.authoritative_entries;i++) {
+            authorities.push(DNSRecord.readFromBytes(buffer))
+        }
+
+        const resources = [];
+        for (let i =0; i< header.resource_entries;i++) {
+            resources.push(DNSRecord.readFromBytes(buffer))
+        }
+
+        return new DNSPacket(header,questions, answers,authorities,resources)
 
     }
 }
@@ -180,11 +192,50 @@ class DNSRecord {
         this.host = host;
     }
 
+    writeToBytes() {
+        const labels = this.name.split(".");
+        const buffers = []
+        for (const label of labels) {
+            const len = label.length;
+            buffers.push(Buffer.from([len]))
+            buffers.push(Buffer.from(label))
+        }
+        buffers.push(Buffer.from([0]))
+
+        const type = Buffer.alloc(2)
+        const nameToTypeMap = Object.fromEntries(Object.entries(DNSRecord.typeToNameMap).map(([key, value]) => [value, key]))
+        type.writeUInt16BE(nameToTypeMap[this.type_])
+        buffers.push(type)
+
+        const class_ = Buffer.alloc(2)
+        type.writeUInt16BE(this.class_)
+        buffers.push(class_)
+
+        const ttl = Buffer.alloc(4)
+        ttl.writeUInt32BE(this.ttl)
+        buffers.push(ttl)
+
+        const ipSplitted = this.ip?.split('.')
+
+        for (let i = 0; i < ipSplitted.length; i++) {
+            //TODO Add writing IP to bytes
+            console.log(Buffer.from(ipSplitted[i]))
+            buffers.push(Buffer.from(ipSplitted[i]))
+        }
+
+        return Buffer.concat(buffers)
+    }
+
     static readFromBytes(buffer) {
         const nameBytes = [buffer.readUInt8(),buffer.readUInt8()];
-        const jump = Buffer.from(nameBytes).readUInt16BE() ^ Buffer.from([nameBytes[0], 0x00]).readUInt16BE();
+        let name = ''
 
-        const name = buffer.peekName(jump);
+        if((Buffer.from(nameBytes).readUInt16BE() & 0xC000) === 0xC000) {
+            const jump = Buffer.from(nameBytes).readUInt16BE() ^ Buffer.from([nameBytes[0], 0x00]).readUInt16BE();
+            name = buffer.peekName(jump);
+        } else {
+            name = buffer.peekName(buffer.currentPos);
+        }
 
         const type_ = DNSRecord.typeToNameMap[buffer.readUInt16BE()];
         const class_ = buffer.readUInt16BE();

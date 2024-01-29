@@ -42,7 +42,7 @@ class BufferReader {
             currIndex += 1+len
             len = tmpBuff.readUInt8(currIndex)
         }
-        console.log(res)
+
         return res.join('.')
     }
 }
