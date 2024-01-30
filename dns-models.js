@@ -5,7 +5,7 @@ class DNSPacket {
     authorities;
     resources;
 
-    constructor(header, questions, answers, authorities, resources) {
+    constructor(header, questions = [], answers = [], authorities = [], resources = []) {
         this.header = header
         this.questions = questions
         this.answers = answers
@@ -194,13 +194,14 @@ class DNSRecord {
 
     writeToBytes() {
         const labels = this.name.split(".");
-        const buffers = []
-        for (const label of labels) {
-            const len = label.length;
-            buffers.push(Buffer.from([len]))
-            buffers.push(Buffer.from(label))
-        }
-        buffers.push(Buffer.from([0]))
+        const buffers = [Buffer.from([0xc0,0x0c])]
+        // TODO Fix name writing instead of hardcoding jump to byte 12
+        // for (const label of labels) {
+        //     const len = label.length;
+        //     buffers.push(Buffer.from([len]))
+        //     buffers.push(Buffer.from(label))
+        // }
+        // buffers.push(Buffer.from([0]))
 
         const type = Buffer.alloc(2)
         const nameToTypeMap = Object.fromEntries(Object.entries(DNSRecord.typeToNameMap).map(([key, value]) => [value, key]))
@@ -208,20 +209,23 @@ class DNSRecord {
         buffers.push(type)
 
         const class_ = Buffer.alloc(2)
-        type.writeUInt16BE(this.class_)
+        class_.writeUInt16BE(this.class_)
         buffers.push(class_)
 
         const ttl = Buffer.alloc(4)
         ttl.writeUInt32BE(this.ttl)
         buffers.push(ttl)
+        const len = Buffer.alloc(2)
+        len.writeUInt16BE(4)
+        buffers.push(len)
 
         const ipSplitted = this.ip?.split('.')
 
         for (let i = 0; i < ipSplitted.length; i++) {
-            //TODO Add writing IP to bytes
-            console.log(Buffer.from(ipSplitted[i]))
-            buffers.push(Buffer.from(ipSplitted[i]))
+            buffers.push(Buffer.from([Number(ipSplitted[i])]))
         }
+
+        console.log(Buffer.concat(buffers))
 
         return Buffer.concat(buffers)
     }
