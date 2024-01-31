@@ -30,12 +30,12 @@ class DNSPacket {
 
         const authorities = [];
         for (let i =0; i< header.authoritative_entries;i++) {
-            authorities.push(DNSRecord.readFromBytes(buffer))
+            // authorities.push(DNSRecord.readFromBytes(buffer))
         }
 
         const resources = [];
         for (let i =0; i< header.resource_entries;i++) {
-            resources.push(DNSRecord.readFromBytes(buffer))
+            // resources.push(DNSRecord.readFromBytes(buffer))
         }
 
         return new DNSPacket(header,questions, answers,authorities,resources)
@@ -219,22 +219,37 @@ class DNSRecord {
         len.writeUInt16BE(4)
         buffers.push(len)
 
-        const ipSplitted = this.ip?.split('.')
+        if (this.ip) {
+            const ipSplitted = this.ip?.split('.')
 
-        for (let i = 0; i < ipSplitted.length; i++) {
-            buffers.push(Buffer.from([Number(ipSplitted[i])]))
+            for (let i = 0; i < ipSplitted.length; i++) {
+                buffers.push(Buffer.from([Number(ipSplitted[i])]))
+            }
+        } else if (this.host) {
+            const labels = this.name.split(".");
+            const buffers = [Buffer.from([0xc0,0x0c])]
+            // TODO Fix name writing instead of hardcoding jump to byte 12
+            // for (const label of labels) {
+            //     const len = label.length;
+            //     buffers.push(Buffer.from([len]))
+            //     buffers.push(Buffer.from(label))
+            // }
+            // buffers.push(Buffer.from([0]))
         }
 
-        console.log(Buffer.concat(buffers))
 
         return Buffer.concat(buffers)
     }
 
     static readFromBytes(buffer) {
-        const nameBytes = [buffer.readUInt8(),buffer.readUInt8()];
         let name = ''
+        const nameBytes = [buffer.buffer.readUInt8(buffer.currentPos),buffer.buffer.readUInt8(buffer.currentPos +1)];
+        const isPointer = (Buffer.from(nameBytes).readUInt16BE() & 0xC000) === 0xC000;
 
-        if((Buffer.from(nameBytes).readUInt16BE() & 0xC000) === 0xC000) {
+        if(isPointer) {
+            buffer.readUInt8()
+            buffer.readUInt8()
+
             const jump = Buffer.from(nameBytes).readUInt16BE() ^ Buffer.from([nameBytes[0], 0x00]).readUInt16BE();
             name = buffer.peekName(jump);
         } else {
@@ -248,11 +263,17 @@ class DNSRecord {
 
         if (type_ === 'A') {
             const ip = `${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}.${buffer.readUInt8()}`;
+
             return new DNSRecord(name, type_, class_, ttl, len, ip)
         } else {
-            const host = buffer.peekName(buffer.currentPos);
-            buffer.readRange(len) // move currentPos to the end of data section
-            return new DNSRecord(name, type_, class_, ttl, len, undefined,host)
+
+            let host = buffer.peekName(buffer.currentPos)
+            buffer.readRange(len)
+
+            const record = new DNSRecord(name, type_, class_, ttl, len, undefined,host)
+
+            buffer.peekLeftBytes()
+            return record
         }
     }
 }
