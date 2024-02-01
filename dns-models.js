@@ -30,12 +30,12 @@ class DNSPacket {
 
         const authorities = [];
         for (let i =0; i< header.authoritative_entries;i++) {
-            // authorities.push(DNSRecord.readFromBytes(buffer))
+            authorities.push(DNSRecord.readFromBytes(buffer))
         }
 
         const resources = [];
         for (let i =0; i< header.resource_entries;i++) {
-            // resources.push(DNSRecord.readFromBytes(buffer))
+            resources.push(DNSRecord.readFromBytes(buffer))
         }
 
         return new DNSPacket(header,questions, answers,authorities,resources)
@@ -194,14 +194,14 @@ class DNSRecord {
 
     writeToBytes() {
         const labels = this.name.split(".");
-        const buffers = [Buffer.from([0xc0,0x0c])]
-        // TODO Fix name writing instead of hardcoding jump to byte 12
-        // for (const label of labels) {
-        //     const len = label.length;
-        //     buffers.push(Buffer.from([len]))
-        //     buffers.push(Buffer.from(label))
-        // }
-        // buffers.push(Buffer.from([0]))
+        const buffers = []
+
+        for (const label of labels) {
+            const len = label.length;
+            buffers.push(Buffer.from([len]))
+            buffers.push(Buffer.from(label))
+        }
+        buffers.push(Buffer.from([0]))
 
         const type = Buffer.alloc(2)
         const nameToTypeMap = Object.fromEntries(Object.entries(DNSRecord.typeToNameMap).map(([key, value]) => [value, key]))
@@ -215,26 +215,32 @@ class DNSRecord {
         const ttl = Buffer.alloc(4)
         ttl.writeUInt32BE(this.ttl)
         buffers.push(ttl)
-        const len = Buffer.alloc(2)
-        len.writeUInt16BE(4)
-        buffers.push(len)
 
         if (this.ip) {
+            const len = Buffer.alloc(2)
+            len.writeUInt16BE(4)
+            buffers.push(len)
             const ipSplitted = this.ip?.split('.')
 
             for (let i = 0; i < ipSplitted.length; i++) {
                 buffers.push(Buffer.from([Number(ipSplitted[i])]))
             }
         } else if (this.host) {
-            const labels = this.name.split(".");
-            const buffers = [Buffer.from([0xc0,0x0c])]
-            // TODO Fix name writing instead of hardcoding jump to byte 12
-            // for (const label of labels) {
-            //     const len = label.length;
-            //     buffers.push(Buffer.from([len]))
-            //     buffers.push(Buffer.from(label))
-            // }
-            // buffers.push(Buffer.from([0]))
+            const labels = this.host.split(".");
+            const dataBuffers = []
+            for (const label of labels) {
+                const len = label.length;
+                dataBuffers.push(Buffer.from([len]))
+                dataBuffers.push(Buffer.from(label))
+            }
+            dataBuffers.push(Buffer.from([0]))
+
+            console.log(labels);
+            console.log(dataBuffers);
+            console.log(Buffer.concat(dataBuffers).byteLength);
+            console.log(Buffer.concat(dataBuffers));
+            buffers.push(Buffer.from([Buffer.concat(dataBuffers).byteLength]))
+            buffers.push(...dataBuffers)
         }
 
 
