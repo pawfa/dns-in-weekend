@@ -25,7 +25,6 @@ const yahooResp = Buffer.from([
 const packet = DNSPacket.readFromBytes(new BufferReader(yahooResp))
 console.log(packet)
 console.log(resp)
-// console.log(packet.writeToBytes())
 
 module.exports = {DNSHeader, DNSPacket, DNSQuestion};
 

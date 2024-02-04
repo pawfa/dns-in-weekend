@@ -235,10 +235,6 @@ class DNSRecord {
             }
             dataBuffers.push(Buffer.from([0]))
 
-            console.log(labels);
-            console.log(dataBuffers);
-            console.log(Buffer.concat(dataBuffers).byteLength);
-            console.log(Buffer.concat(dataBuffers));
             buffers.push(Buffer.from([Buffer.concat(dataBuffers).byteLength]))
             buffers.push(...dataBuffers)
         }

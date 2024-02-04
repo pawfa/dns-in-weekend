@@ -42,7 +42,6 @@ function handleQuery(message,sendFunc) {
         respPacket.answers = resp.answers
         respPacket.authorities = resp.authorities
         respPacket.resources = resp.resources
-        console.log(respPacket)
         sendFunc(respPacket.writeToBytes())
     })
 }
