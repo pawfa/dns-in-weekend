@@ -274,10 +274,9 @@ class DNSRecord {
 
             const record = new DNSRecord(name, type_, class_, ttl, len, undefined,host)
 
-            buffer.peekLeftBytes()
             return record
         }
     }
 }
 
-module.exports = {DNSPacket, DNSHeader, DNSQuestion}
+module.exports = {DNSPacket, DNSHeader, DNSQuestion,DNSRecord}
